@@ -1,0 +1,78 @@
+import numpy as np
+import pandas as pd
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, GRU, Dropout, Conv1D, BatchNormalization, Activation, GlobalAveragePooling1D, Dense, Permute, concatenate
+from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.preprocessing import MinMaxScaler
+ 
+# Assuming the dataset shapes:
+# X_train5.shape = (num_samples, 1, MAX_SEQUENCE_LENGTH)
+# Y_train5.shape = (num_samples, NB_CLASS)
+# X_test5.shape = (num_samples, 1, MAX_SEQUENCE_LENGTH)
+# Y_test5.shape = (num_samples, NB_CLASS)
+ 
+# Parameters
+MAX_SEQUENCE_LENGTH = X_train5.shape[2]
+NB_CLASS = Y_train5.shape[1] if len(Y_train5.shape) > 1 else 1
+ 
+def generate_GRU_FCN_model(input_shape, nb_class):
+    inp = Input(shape=input_shape)
+ 
+    # GRU part
+    x_r = GRU(8)(inp)  # GRU with 8 units
+    x_r = Dropout(0.8)(x_r)  # 80% dropout
+ 
+    # Convolutional part
+    y = Permute((2, 1))(inp)
+    y = Conv1D(128, 8, padding='same', kernel_initializer='he_uniform')(y)  # 128 filters
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+ 
+    y = Conv1D(256, 5, padding='same', kernel_initializer='he_uniform')(y)  # 256 filters
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+ 
+    y = Conv1D(128, 3, padding='same', kernel_initializer='he_uniform')(y)  # 128 filters
+    y = BatchNormalization()(y)
+    y = Activation('relu')(y)
+ 
+    y = GlobalAveragePooling1D()(y)
+ 
+    x = concatenate([x_r, y])
+ 
+    output = Dense(nb_class, activation='softmax' if nb_class > 1 else 'linear')(x)
+ 
+    model = Model(inp, output)
+    model.summary()
+ 
+    return model
+ 
+# Define input shape
+input_shape = (1, MAX_SEQUENCE_LENGTH)
+ 
+# Generate the model
+model5 = generate_GRU_FCN_model(input_shape, NB_CLASS)
+ 
+# Compile the model
+model5.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error' if NB_CLASS == 1 else 'categorical_crossentropy', metrics=['accuracy'])
+ 
+# Train the model
+history5 = model5.fit(X_train5, Y_train5, epochs=20, batch_size=64, validation_split=0.2, verbose=1, shuffle=True)
+ 
+# Predict on test set
+predictions5 = model5.predict(X_test5)
+ 
+# If it's a regression task, you may want to calculate metrics like MAE and RMSE
+if NB_CLASS == 1:
+    test_mae = mean_absolute_error(Y_test5, predictions5)
+    test_rmse = np.sqrt(mean_squared_error(Y_test5, predictions5))
+    print('Test Mean Absolute Error:', test_mae)
+    print('Test Root Mean Squared Error:', test_rmse)
+else:
+    # For classification tasks, you might use accuracy or other classification metrics
+    from sklearn.metrics import accuracy_score
+    test_acc = accuracy_score(np.argmax(Y_test5, axis=1), np.argmax(predictions5, axis=1))
+    print('Test Accuracy:', test_acc)
+predictions5_inv = scaler.inverse_transform(predictions5)
+Y_test5_inv = scaler.inverse_transform([Y_test5])

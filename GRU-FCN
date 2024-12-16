@@ -76,3 +76,6 @@ else:
     print('Test Accuracy:', test_acc)
 predictions5_inv = scaler.inverse_transform(predictions5)
 Y_test5_inv = scaler.inverse_transform([Y_test5])
+
+grufcn_mae = mean_absolute_error(Y_test5_inv[0], predictions5_inv[:,0])
+grufcn_rmse = np.sqrt(mean_squared_error(Y_test5_inv[0], predictions5_inv[:,0]))

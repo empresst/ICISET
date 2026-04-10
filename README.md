@@ -5,7 +5,7 @@
 **Official Code Repository** for the paper presented at **ICISET 2024**
 
 **Authors**: Fatema Ferdous Tamanna, Tamanna Akter Sonaly, Md Abdul Masud  
-**Paper**: [ICISET 2024](https://ieeexplore.ieee.org/document/...) *(link will be updated after publication)*
+**Paper**: [ICISET 2024](https://ieeexplore.ieee.org/abstract/document/10939673) 
 
 ---
 

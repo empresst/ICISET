@@ -3,6 +3,6 @@ __pycache__/
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 .DS_Store
-*.npy
 *.h5
 *.pkl
+/ici

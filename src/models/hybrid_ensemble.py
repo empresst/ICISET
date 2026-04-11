@@ -3,18 +3,18 @@ import numpy as np
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow.keras.layers import Concatenate, Dense, LSTM, GRU, Bidirectional, Input, Conv1D, GlobalMaxPooling1D, LeakyReLU
 from tensorflow.keras.models import Model
-from adabelief_tf import AdaBeliefOptimizer
+from tensorflow.keras.optimizers import Adam          # ← Changed to Adam
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
-    """Exact Hybrid (BiLSTM + BiGRU + TCN + XGBoost) code from your notebook"""
+    """Quick Fix: Using Adam instead of AdaBelief to avoid compatibility error"""
     
     lstm_units = 64
     gru_units = 64
     tcn_filters = 64
     tcn_kernel_size = 3
-    initial_learning_rate = 0.001
+    learning_rate = 0.001
     leaky_relu_alpha = 0.01
 
     def create_lstm_model(input_shape, units=lstm_units):
@@ -24,8 +24,7 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
         x = Dense(64)(x)
         x = LeakyReLU(alpha=leaky_relu_alpha)(x)
         model = Model(inputs=inputs, outputs=x)
-        optimizer = AdaBeliefOptimizer(learning_rate=initial_learning_rate, epsilon=1e-14, rectify=True)
-        model.compile(loss='mean_squared_error', optimizer=optimizer)
+        model.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=learning_rate))
         return model
 
     def create_gru_model(input_shape, units=gru_units):
@@ -35,8 +34,7 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
         x = Dense(64)(x)
         x = LeakyReLU(alpha=leaky_relu_alpha)(x)
         model = Model(inputs=inputs, outputs=x)
-        optimizer = AdaBeliefOptimizer(learning_rate=initial_learning_rate, epsilon=1e-14, rectify=True)
-        model.compile(loss='mean_squared_error', optimizer=optimizer)
+        model.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=learning_rate))
         return model
 
     def create_tcn_model(input_shape, filters=tcn_filters, kernel_size=tcn_kernel_size):
@@ -48,8 +46,7 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
         x = Dense(64)(x)
         x = LeakyReLU(alpha=leaky_relu_alpha)(x)
         model = Model(inputs=inputs, outputs=x)
-        optimizer = AdaBeliefOptimizer(learning_rate=initial_learning_rate, epsilon=1e-14, rectify=True)
-        model.compile(loss='mean_squared_error', optimizer=optimizer)
+        model.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=learning_rate))
         return model
 
     input_shape = (X_train.shape[1], X_train.shape[2])
@@ -72,18 +69,19 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
         return combined_model
 
     combined_model = combine_models(lstm_model, gru_model, tcn_model_instance)
+    combined_model.compile(loss='mean_squared_error', optimizer=Adam(learning_rate=learning_rate))
 
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=0.0001)
-    combined_model.compile(loss='mean_squared_error', 
-                           optimizer=AdaBeliefOptimizer(learning_rate=initial_learning_rate, epsilon=1e-14, rectify=True))
-
-    combined_model.fit([X_train, X_train, X_train], Y_train, epochs=20, batch_size=256,
+    
+    combined_model.fit([X_train, X_train, X_train], Y_train, 
+                       epochs=20, batch_size=256,
                        validation_data=([X_test, X_test, X_test], Y_test),
                        callbacks=[EarlyStopping(monitor='val_loss', patience=4), reduce_lr],
                        verbose=1, shuffle=True)
 
     combined_model.summary()
 
+    # Predictions + XGBoost (unchanged)
     lstm_predictions_test = lstm_model.predict(X_test)
     gru_predictions_test = gru_model.predict(X_test)
     tcn_predictions_test = tcn_model_instance.predict(X_test)
@@ -97,6 +95,7 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
     combined_features_test = np.concatenate([X_test.reshape(X_test.shape[0], -1),
                                              comb_test, lstm_predictions_test,
                                              gru_predictions_test, tcn_predictions_test], axis=1)
+
     combined_features_train = np.concatenate([X_train.reshape(X_train.shape[0], -1),
                                               comb_train, lstm_predictions_train,
                                               gru_predictions_train, tcn_predictions_train], axis=1)
@@ -105,11 +104,9 @@ def train_hybrid(X_train, Y_train, X_test, Y_test, scaler):
     xgb_model.fit(combined_features_train, Y_train)
 
     test_predictions = xgb_model.predict(combined_features_test)
-
     test_predictions_inv = scaler.inverse_transform(test_predictions.reshape(-1, 1))
-    Y_test_inv = scaler.inverse_transform(Y_test.reshape(-1, 1))
 
-    print('Test Mean Absolute Error (Hybrid):', mean_absolute_error(Y_test_inv, test_predictions_inv))
-    print('Test Root Mean Squared Error (Hybrid):', np.sqrt(mean_squared_error(Y_test_inv, test_predictions_inv)))
+    print('Test Mean Absolute Error (Hybrid):', mean_absolute_error(Y_test, test_predictions_inv))
+    print('Test Root Mean Squared Error (Hybrid):', np.sqrt(mean_squared_error(Y_test, test_predictions_inv)))
 
     return test_predictions_inv

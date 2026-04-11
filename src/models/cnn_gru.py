@@ -2,10 +2,11 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv1D, BatchNormalization, Dropout, GRU, Dense, MaxPooling1D
 from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 import numpy as np
 
 def create_cnn_gru(input_shape, X_train, Y_train, X_test, Y_test, scaler):
-    """Exact CNN-GRU code from your notebook"""
+    """Exact CNN-GRU code + added evaluation print"""
     def generate_CNN_GRU_model(input_shape):
         inp = Input(shape=input_shape)
         x = Conv1D(64, 5, activation='relu')(inp)
@@ -30,5 +31,10 @@ def create_cnn_gru(input_shape, X_train, Y_train, X_test, Y_test, scaler):
                       validation_split=0.2, verbose=1, shuffle=True)
 
     test_predict = model_cnn_gru.predict(X_test_reshaped)
-    test_predict = scaler.inverse_transform(test_predict)
-    return test_predict
+    test_predict_inv = scaler.inverse_transform(test_predict)
+    Y_test_inv = scaler.inverse_transform(Y_test.reshape(-1, 1))
+
+    print('Test Mean Absolute Error (CNN-GRU):', mean_absolute_error(Y_test_inv, test_predict_inv))
+    print('Test Root Mean Squared Error (CNN-GRU):', np.sqrt(mean_squared_error(Y_test_inv, test_predict_inv)))
+
+    return test_predict_inv
